@@ -49,6 +49,12 @@ function wlConfig(raw = {}) {
     show_history: r.show_history !== false
   };
 }
+// Sensor icons are the Home Assistant defaults for the entity (moisture: mdi:water-off dry, mdi:water wet).
+function wlSensorIcon(entityId, hasState) {
+  return hasState
+    ? `<ha-state-icon class="wl-sicon" data-wl-entity="${wlEscape(entityId)}"></ha-state-icon>`
+    : wlIcon('water-off');
+}
 function wlIcon(name) { return `<ha-icon icon="mdi:${name}" aria-hidden="true"></ha-icon>`; }
 // Only "on" is a leak and only "off" is dry: unavailable, unknown or a missing entity is never treated as safe.
 function wlStatus(entity) {
@@ -137,7 +143,8 @@ button{font:inherit}
   .wl-row{position:relative;overflow:hidden;display:flex;gap:11px;align-items:center;min-width:0;background:var(--wl-tile);border:0;padding:10px 12px 10px 16px;border-radius:16px;min-height:56px}
   .wl-row:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
   .wl-row-orb{display:grid;place-items:center;flex:none;width:35px;height:35px;background:var(--wl-tile);border-radius:50%;color:var(--c)}
-  .wl-row .wl-row-orb{width:36px;height:36px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+  .wl-row .wl-row-orb{width:36px;height:36px;background:var(--wl-circle);color:var(--wl-fg)}
+  .wl-dhead .wl-row-orb{background:var(--wl-circle);color:var(--wl-fg)}
   .wl-row-t{min-width:0;flex:1}
   .wl-row-nm{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wl-row-st{font-size:11.5px;font-weight:600;color:var(--c);margin-top:1px}
@@ -190,6 +197,9 @@ button{font:inherit}
   .wl-ev .d{display:block;font-size:11.5px;color:var(--wl-muted);margin-top:1px}
 
   ha-icon{display:block;flex:none;margin:0}
+  ha-state-icon{display:flex;align-items:center;justify-content:center;flex:none;margin:0}
+  .wl-row-orb ha-state-icon,.wl-row-orb ha-icon{width:19px;height:19px;--mdc-icon-size:19px}
+  .wl-dhead .wl-row-orb ha-state-icon{width:18px;height:18px;--mdc-icon-size:18px}
   .wl-ring ha-icon{--mdc-icon-size:26px;width:26px;height:26px}
   .wl-row-orb ha-icon{--mdc-icon-size:19px;width:19px;height:19px}
   .wl-dhead .wl-row-orb ha-icon{--mdc-icon-size:18px;width:18px;height:18px}
@@ -347,7 +357,7 @@ class WaterLeakCard extends HTMLElement {
   }
   _popup(rows) {
     const sensors = rows.length ? rows.map(r => `<div class="wl-detailbox ${WL_CLASS[r.status]}">
-      <div class="wl-dhead"><span class="wl-row-orb" style="width:32px;height:32px">${wlIcon(WL_ICON[r.status])}</span><strong>${wlEscape(r.name)}</strong><span class="wl-tag">${WL_LABEL[r.status]}</span></div>
+      <div class="wl-dhead"><span class="wl-row-orb" style="width:32px;height:32px">${wlSensorIcon(r.entity, r.status !== 'na' || !!this._hass?.states?.[r.entity])}</span><strong>${wlEscape(r.name)}</strong><span class="wl-tag">${WL_LABEL[r.status]}</span></div>
       <div class="wl-mrow"><span>Stato</span><strong>${wlEscape(r.age ? `${WL_SHORT[r.status]} da ${r.age}` : WL_SHORT[r.status])}</strong></div>
       <div class="wl-mrow"><span>Ultimo aggiornamento</span><strong>${wlEscape(r.when)}</strong></div>
       <div class="wl-mrow"><span>Entità</span><strong>${wlEscape(r.entity)}</strong></div></div>`).join('')
@@ -379,7 +389,7 @@ class WaterLeakCard extends HTMLElement {
     const c = this._config;
     const showEyebrow = c.show_eyebrow && c.eyebrow, showTitle = c.show_title && c.title;
     const head = showEyebrow || showTitle ? `<div class="wl-head"><div>${showEyebrow ? `<div class="wl-eyebrow">${wlEscape(c.eyebrow)}</div>` : ''}${showTitle ? `<div class="wl-title">${wlEscape(c.title)}<b>.</b></div>` : ''}</div></div>` : '';
-    const list = rows.map(r => `<div class="wl-row ${WL_CLASS[r.status]}"><span class="wl-row-orb">${wlIcon(WL_ICON[r.status])}</span>
+    const list = rows.map(r => `<div class="wl-row ${WL_CLASS[r.status]}"><span class="wl-row-orb">${wlSensorIcon(r.entity, r.status !== 'na' || !!this._hass?.states?.[r.entity])}</span>
       <div class="wl-row-t"><div class="wl-row-nm">${wlEscape(r.name)}</div><div class="wl-row-st">${WL_SHORT[r.status]}</div></div>
       ${c.show_last_update ? `<div class="wl-row-r"><span class="lbl">Ultimo aggiornamento</span><strong>${wlEscape(r.when)}</strong></div>` : ''}</div>`).join('');
     const sr = this.shadowRoot, q = sel => sr.querySelector(sel);
@@ -393,6 +403,7 @@ class WaterLeakCard extends HTMLElement {
         ${c.show_details ? `<div class="wl-foot"><button type="button" class="wl-detail" data-open="1" data-focus="open">Dettagli e stato ${wlIcon('chevron-right')}</button></div>` : ''}
       </div></div>
       ${this._open ? this._popup(rows) : ''}`;
+    sr.querySelectorAll('[data-wl-entity]').forEach(el => { el.hass = this._hass; el.stateObj = this._hass?.states?.[el.dataset.wlEntity]; });
     if (q('.wl-mbody')) q('.wl-mbody').scrollTop = keepBody;
     this._lockScroll();
     if (want) q(`[data-focus="${want}"]`)?.focus({preventScroll: true});
