@@ -1,6 +1,6 @@
 # Water Leak Card
 
-[![HACS Repository](https://img.shields.io/badge/HACS-Repository-41BDF5?style=flat-square)](https://www.hacs.xyz/docs/faq/custom_repositories/)
+[![HACS Repository](https://img.shields.io/badge/HACS-Repository-41BDF5?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=flat-square)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/luigi-regolo/water-leak-card?style=flat-square)](https://github.com/luigi-regolo/water-leak-card/stargazers)
 
@@ -38,6 +38,8 @@ The card uses `binary_sensor` entities already available in Home Assistant. It d
 ## Installation
 
 ### HACS — Custom repository
+
+[![Open Water Leak Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
 
 1. Open **HACS** in Home Assistant.
 2. Open the menu and select **Custom repositories**.
