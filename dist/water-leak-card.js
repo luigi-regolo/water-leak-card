@@ -196,7 +196,7 @@ button{font:inherit}
   .wl-ev strong{display:block;font-size:12.5px;font-weight:600;overflow-wrap:anywhere}
   .wl-ev .d{display:block;font-size:11.5px;color:var(--wl-muted);margin-top:1px}
 
-  ha-icon{display:block;flex:none;margin:0}
+  ha-icon{display:flex;align-items:center;justify-content:center;flex:none;margin:0;line-height:0}
   ha-state-icon{display:flex;align-items:center;justify-content:center;flex:none;margin:0}
   .wl-row-orb ha-state-icon,.wl-row-orb ha-icon{width:19px;height:19px;--mdc-icon-size:19px}
   .wl-dhead .wl-row-orb ha-state-icon{width:18px;height:18px;--mdc-icon-size:18px}
@@ -205,6 +205,7 @@ button{font:inherit}
   .wl-dhead .wl-row-orb ha-icon{--mdc-icon-size:18px;width:18px;height:18px}
   .wl-detail ha-icon{--mdc-icon-size:18px;width:18px;height:18px;color:inherit}
   .wl-close ha-icon{--mdc-icon-size:18px;width:18px;height:18px}
+  .wl-close{line-height:0;padding:0}
   .wl-empty{color:var(--wl-muted);font-size:11.5px;line-height:1.45;padding:2px 4px}
   .wl-detail{cursor:pointer;transition:background .15s}
 `;
@@ -250,7 +251,8 @@ class WaterLeakCard extends HTMLElement {
     this._paint();
   }
   set hass(hass) { this._hass = hass; this._paint(); }
-  getCardSize() { return 2 + Math.max(1, this._config.entities.length); }
+  // Home Assistant's masonry view places cards by this estimate (units of 50px): keep it close to the real height so the card does not move when it renders.
+  getCardSize() { return Math.max(4, Math.round((200 + 72 * this._config.entities.length) / 50)); }
   _zone() { return this._hass?.config?.time_zone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
   _isDark() {
     return this._config.theme_mode === 'dark' ||
@@ -381,8 +383,10 @@ class WaterLeakCard extends HTMLElement {
     if (signature === this._lastSignature) return;
     this._lastSignature = signature;
     const wet = rows.filter(r => r.status === 'wet'), na = rows.filter(r => r.status === 'na'), dry = rows.filter(r => r.status === 'dry');
+    const loading = !this._hass && rows.length > 0;
     let cls, icon, big, sub;
-    if (!rows.length) { cls = 'wl-na'; icon = 'cancel'; big = 'Nessun sensore'; sub = 'Seleziona i sensori nell’editor della card'; }
+    if (loading) { cls = 'wl-na'; icon = 'water-off'; big = 'Caricamento…'; sub = '\u00a0'; }
+    else if (!rows.length) { cls = 'wl-na'; icon = 'cancel'; big = 'Nessun sensore'; sub = 'Seleziona i sensori nell’editor della card'; }
     else if (wet.length) { cls = 'wl-wet'; icon = 'alert'; big = 'Perdita rilevata'; sub = `${wet.map(r => r.name).join(', ')} · ${wet[0].when}`; }
     else if (na.length) { cls = 'wl-warn'; icon = 'cancel'; big = 'Controllo incompleto'; sub = `${dry.length} su ${rows.length} asciutti · ${na.length} non disponibil${na.length > 1 ? 'i' : 'e'}`; }
     else { cls = 'wl-ok'; icon = 'water'; big = 'Nessuna perdita'; sub = 'Tutto asciutto'; }
@@ -390,8 +394,8 @@ class WaterLeakCard extends HTMLElement {
     const showEyebrow = c.show_eyebrow && c.eyebrow, showTitle = c.show_title && c.title;
     const head = showEyebrow || showTitle ? `<div class="wl-head"><div>${showEyebrow ? `<div class="wl-eyebrow">${wlEscape(c.eyebrow)}</div>` : ''}${showTitle ? `<div class="wl-title">${wlEscape(c.title)}<b>.</b></div>` : ''}</div></div>` : '';
     const list = rows.map(r => `<div class="wl-row ${WL_CLASS[r.status]}"><span class="wl-row-orb">${wlSensorIcon(r.entity, r.status !== 'na' || !!this._hass?.states?.[r.entity])}</span>
-      <div class="wl-row-t"><div class="wl-row-nm">${wlEscape(r.name)}</div><div class="wl-row-st">${WL_SHORT[r.status]}</div></div>
-      ${c.show_last_update ? `<div class="wl-row-r"><span class="lbl">Ultimo aggiornamento</span><strong>${wlEscape(r.when)}</strong></div>` : ''}</div>`).join('');
+      <div class="wl-row-t"><div class="wl-row-nm">${wlEscape(r.name)}</div><div class="wl-row-st">${loading ? '&nbsp;' : WL_SHORT[r.status]}</div></div>
+      ${c.show_last_update ? `<div class="wl-row-r"><span class="lbl">Ultimo aggiornamento</span><strong>${loading ? '&nbsp;' : wlEscape(r.when)}</strong></div>` : ''}</div>`).join('');
     const sr = this.shadowRoot, q = sel => sr.querySelector(sel);
     const keepBody = q('.wl-mbody')?.scrollTop || 0;
     const want = this._pendingFocus || this._activeKey();
