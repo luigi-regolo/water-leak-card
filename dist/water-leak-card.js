@@ -175,7 +175,6 @@ button{font:inherit}
   .wl-dialog{width:min(390px,100%);min-width:0;max-height:min(88dvh,680px);display:flex;flex-direction:column;background:var(--wl-bg);color:var(--wl-fg);border:1px solid var(--wl-line);border-radius:26px;overflow:hidden;box-shadow:0 18px 60px #0005}
   .wl-mhead{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 12px 18px;background:var(--wl-bg);border-bottom:1px solid var(--wl-line)}
   .wl-mtitle{flex:1;min-width:0;margin:0;font-size:17px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
-  .wl-mtitle b{color:var(--wl-accent)}
   .wl-close{display:grid;place-items:center;padding:0;width:40px;height:40px;flex:none;border:1px solid var(--wl-line);border-radius:50%;background:var(--wl-tile);color:var(--wl-fg)}
   .wl-mbody{overflow-y:auto;overflow-x:hidden;padding:12px 18px 18px;overscroll-behavior:contain}
   .wl-detail-heading{font-weight:600;font-size:13px;margin:17px 0 10px}
@@ -277,14 +276,14 @@ class WaterLeakCard extends HTMLElement {
   _title() { return this._config.title || WL_DEFAULTS.title; }
   _openPopup() {
     if (this._open) return;
-    this._open = true; this._pendingFocus = 'close'; this._lastSignature = '';
+    this._open = true; this._pendingFocus = 'close'; this._popSig = null;
     document.addEventListener('keydown', this._onKey);
     this._loadHistory();
     this._paint();
   }
   _closePopup() {
     if (!this._open) return;
-    this._open = false; this._pendingFocus = 'open'; this._lastSignature = '';
+    this._open = false; this._pendingFocus = 'open'; this._popSig = null;
     this._histToken++;
     document.removeEventListener('keydown', this._onKey);
     this._paint();
@@ -311,7 +310,7 @@ class WaterLeakCard extends HTMLElement {
       if (token !== this._histToken) return;
       this._hist = {state: 'error', events: []};
     }
-    this._lastSignature = '';
+    this._popSig = null;
     this._paint();
   }
   _key(event) {
@@ -365,7 +364,7 @@ class WaterLeakCard extends HTMLElement {
       <div class="wl-mrow"><span>Entità</span><strong>${wlEscape(r.entity)}</strong></div></div>`).join('')
       : '<div class="wl-empty">Nessun sensore configurato.</div>';
     return `<div class="wl-backdrop ${this._isDark() ? 'wl-dark' : 'wl-light'}" data-backdrop="1"><div class="wl-dialog" role="dialog" aria-modal="true" aria-labelledby="wl-mt">
-      <div class="wl-mhead"><h2 class="wl-mtitle" id="wl-mt">${wlEscape(this._title())}<b>.</b></h2><button type="button" class="wl-close" data-close="1" data-focus="close" aria-label="Chiudi">${wlIcon('close')}</button></div>
+      <div class="wl-mhead"><h2 class="wl-mtitle" id="wl-mt">Dettagli sensori</h2><button type="button" class="wl-close" data-close="1" data-focus="close" aria-label="Chiudi">${wlIcon('close')}</button></div>
       <div class="wl-mbody"><div class="wl-detail-heading">Sensori</div>${sensors}${this._history(rows)}
         <div class="wl-note">Uno stato non disponibile o sconosciuto non indica che non ci siano perdite. I dati dipendono dai sensori configurati.</div></div>
     </div></div>`;
@@ -378,10 +377,32 @@ class WaterLeakCard extends HTMLElement {
     if (!this.isConnected) return;
     const now = new Date();
     const rows = this._rows(now);
-    const signature = JSON.stringify([this._config, this._hass?.themes?.darkMode, this._isDark(), this._hass?.config?.time_zone,
-      rows, this._open, this._hist, this._open ? Math.floor(now.getTime() / 60000) : 0]);
-    if (signature === this._lastSignature) return;
-    this._lastSignature = signature;
+    if (this._lastSignature === '') { this._cardSig = null; this._popSig = null; this._lastSignature = 'x'; }
+    const cardSig = JSON.stringify([this._config, this._hass?.themes?.darkMode, this._isDark(), this._hass?.config?.time_zone, rows]);
+    const popSig = this._open ? JSON.stringify([this._isDark(), rows, this._hist, Math.floor(now.getTime() / 60000)]) : '';
+    const sr = this.shadowRoot, q = sel => sr.querySelector(sel);
+    // The card and the popup are painted separately: opening the popup never rebuilds the card, so the card cannot move or change size.
+    if (!q('.wl-slot')) {
+      sr.innerHTML = `<style>${WL_CSS}</style><div class="wl-slot"></div><div class="wl-layer"></div>`;
+      this._cardSig = null; this._popSig = null;
+    }
+    const want = this._pendingFocus || this._activeKey();
+    this._pendingFocus = '';
+    if (cardSig !== this._cardSig) { this._cardSig = cardSig; this._paintCard(rows, now, q('.wl-slot')); }
+    if (popSig !== this._popSig) {
+      this._popSig = popSig;
+      const layer = q('.wl-layer'), keepBody = q('.wl-mbody')?.scrollTop || 0;
+      layer.innerHTML = this._open ? this._popup(rows) : '';
+      this._bindIcons();
+      if (q('.wl-mbody')) q('.wl-mbody').scrollTop = keepBody;
+      this._lockScroll();
+    }
+    if (want) q(`[data-focus="${want}"]`)?.focus({preventScroll: true});
+  }
+  _bindIcons() {
+    this.shadowRoot.querySelectorAll('[data-wl-entity]').forEach(el => { el.hass = this._hass; el.stateObj = this._hass?.states?.[el.dataset.wlEntity]; });
+  }
+  _paintCard(rows, now, slot) {
     const wet = rows.filter(r => r.status === 'wet'), na = rows.filter(r => r.status === 'na'), dry = rows.filter(r => r.status === 'dry');
     const loading = !this._hass && rows.length > 0;
     let cls, icon, big, sub;
@@ -396,21 +417,12 @@ class WaterLeakCard extends HTMLElement {
     const list = rows.map(r => `<div class="wl-row ${WL_CLASS[r.status]}"><span class="wl-row-orb">${wlSensorIcon(r.entity, r.status !== 'na' || !!this._hass?.states?.[r.entity])}</span>
       <div class="wl-row-t"><div class="wl-row-nm">${wlEscape(r.name)}</div><div class="wl-row-st">${loading ? '&nbsp;' : WL_SHORT[r.status]}</div></div>
       ${c.show_last_update ? `<div class="wl-row-r"><span class="lbl">Ultimo aggiornamento</span><strong>${loading ? '&nbsp;' : wlEscape(r.when)}</strong></div>` : ''}</div>`).join('');
-    const sr = this.shadowRoot, q = sel => sr.querySelector(sel);
-    const keepBody = q('.wl-mbody')?.scrollTop || 0;
-    const want = this._pendingFocus || this._activeKey();
-    this._pendingFocus = '';
-    sr.innerHTML = `<style>${WL_CSS}</style>
-      <div class="wl-container"><div class="wl-shell ${this._isDark() ? 'wl-dark' : 'wl-light'}">${head}
+    slot.innerHTML = `<div class="wl-container"><div class="wl-shell ${this._isDark() ? 'wl-dark' : 'wl-light'}">${head}
         <div class="wl-hero ${cls}"><span class="wl-ring">${wlIcon(icon)}</span><div><div class="wl-hero-t">${wlEscape(big)}</div><div class="wl-sub">${wlEscape(sub)}</div></div></div>
         ${rows.length ? `<div class="wl-rows n${Math.min(rows.length, 5)}">${list}</div>` : ''}
         ${c.show_details ? `<div class="wl-foot"><button type="button" class="wl-detail" data-open="1" data-focus="open">Dettagli e stato ${wlIcon('chevron-right')}</button></div>` : ''}
-      </div></div>
-      ${this._open ? this._popup(rows) : ''}`;
-    sr.querySelectorAll('[data-wl-entity]').forEach(el => { el.hass = this._hass; el.stateObj = this._hass?.states?.[el.dataset.wlEntity]; });
-    if (q('.wl-mbody')) q('.wl-mbody').scrollTop = keepBody;
-    this._lockScroll();
-    if (want) q(`[data-focus="${want}"]`)?.focus({preventScroll: true});
+      </div></div>`;
+    this._bindIcons();
   }
 }
 const WL_EDITOR_CSS = `
