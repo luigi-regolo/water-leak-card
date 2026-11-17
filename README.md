@@ -1,6 +1,7 @@
 # Water Leak Card
 
-[![HACS Repository](https://img.shields.io/badge/HACS-Repository-41BDF5?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
+[![Marketplace](https://img.shields.io/badge/Marketplace-41BDF5?style=flat-square)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
+[![Release](https://img.shields.io/github/v/release/luigi-regolo/water-leak-card?label=Release&style=flat-square)](https://github.com/luigi-regolo/water-leak-card/releases/latest)
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=flat-square)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/luigi-regolo/water-leak-card?style=flat-square)](https://github.com/luigi-regolo/water-leak-card/stargazers)
 
@@ -37,22 +38,31 @@ The card uses `binary_sensor` entities already available in Home Assistant. It d
 
 ## Installation
 
-### HACS — Custom repository
+### Marketplace (Recommended)
 
-[![Open Water Leak Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
+Install Water Leak Card directly from the default Marketplace catalog in Home Assistant 2026.11 or newer.
 
-1. Open **HACS** in Home Assistant.
-2. Open the menu and select **Custom repositories**.
-3. Enter the repository URL:
+[![Open Water Leak Card in the Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=luigi-regolo&repository=water-leak-card&category=plugin)
 
-   `https://github.com/luigi-regolo/water-leak-card`
+1. Go to **Settings** > **Marketplace**.
+2. The first time, accept the notice about community content.
+3. Use **Search** to find **Water Leak Card**.
+4. Open the repository page and select **Install**.
+5. Check the version in the dialog and select **Install** again to confirm.
+6. Reload your browser to load the new resource.
+7. Add **Water Leak Card** to your dashboard and configure it using the visual editor.
 
-4. Select **Dashboard** as the repository type and add it.
-5. Find **Water Leak Card** in HACS and download it.
-6. Reload the Home Assistant dashboard if necessary.
-7. Add the card using the visual editor.
+### Alternative: Custom repository
 
-The repository contains `hacs.json` and the distributable JavaScript module `dist/water-leak-card.js`.
+If you prefer to add the repository manually:
+
+1. Go to **Settings** > **Marketplace**.
+2. In the upper-right corner, select **Add from link**.
+3. Under **GitHub link**, enter `https://github.com/luigi-regolo/water-leak-card`.
+4. Select **Add**. If the type is not detected, select **Dashboard** under **Type** and select **Add** again.
+5. Open **Water Leak Card** and select **Install**.
+
+Adding a repository from a link requires a connected GitHub account. The Marketplace guides you through the connection when needed.
 
 ### Manual installation
 
